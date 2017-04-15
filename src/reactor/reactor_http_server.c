@@ -71,7 +71,22 @@ static void reactor_http_server_date(reactor_http_server *server)
   memcpy(server->date + 8, months[tm.tm_mon], 3);
 }
 
-static void reactor_http_server_request(reactor_http_server_session *session, reactor_http_request *request)
+static void reactor_http_server_session_hold(reactor_http_server_session *session)
+{
+  session->ref ++;
+}
+
+static void reactor_http_server_session_release(reactor_http_server_session *session)
+{
+  session->ref --;
+  if (!session->ref)
+    {
+      reactor_http_server_release(session->server);
+      free(session);
+    }
+}
+
+static void reactor_http_server_session_request(reactor_http_server_session *session, reactor_http_request *request)
 {
   reactor_http_server_map *map;
   size_t i;
@@ -81,13 +96,14 @@ static void reactor_http_server_request(reactor_http_server_session *session, re
     if ((!map[i].method || strcmp(map[i].method, request->method) == 0) &&
         (!map[i].path || strcmp(map[i].path, request->path) == 0))
       {
+        reactor_http_server_session_hold(session);
         reactor_user_dispatch(&map[i].user, REACTOR_HTTP_SERVER_EVENT_REQUEST,
                               (reactor_http_server_context[]){{.session = session, .request = request}});
         return;
       }
 }
 
-static void reactor_http_server_event_http(void *state, int type, void *data)
+static void reactor_http_server_session_event(void *state, int type, void *data)
 {
   reactor_http_server_session *session = state;
   reactor_http_request *request;
@@ -96,24 +112,34 @@ static void reactor_http_server_event_http(void *state, int type, void *data)
     {
     case REACTOR_HTTP_EVENT_HANGUP:
     case REACTOR_HTTP_EVENT_ERROR:
+      session->state = REACTOR_HTTP_SERVER_SESSION_STATE_CLOSED;
       reactor_http_close(&session->http);
       break;
     case REACTOR_HTTP_EVENT_CLOSE:
-      reactor_http_server_release(session->server);
-      free(session);
+      reactor_http_server_session_release(session);
       break;
     case REACTOR_HTTP_EVENT_REQUEST:
       request = data;
-      reactor_http_server_request(session, request);
+      reactor_http_server_session_request(session, request);
       break;
     }
+}
+
+static void reactor_http_server_session_create(reactor_http_server *server, int socket)
+{
+  reactor_http_server_session *session;
+
+  session = calloc(1, sizeof *session);
+  session->state = REACTOR_HTTP_SERVER_SESSION_STATE_OPEN;
+  session->server = server;
+  reactor_http_server_hold(server);
+  reactor_http_server_session_hold(session);
+  reactor_http_open(&session->http, reactor_http_server_session_event, session, socket, REACTOR_HTTP_FLAG_SERVER);
 }
 
 static void reactor_http_server_event_tcp(void *state, int type, void *data)
 {
   reactor_http_server *server = state;
-  reactor_http_server_session *session;
-  int s;
 
   switch (type)
     {
@@ -121,11 +147,7 @@ static void reactor_http_server_event_tcp(void *state, int type, void *data)
       reactor_http_server_error(server);
       break;
     case REACTOR_TCP_EVENT_ACCEPT:
-      s = *(int *) data;
-      session = malloc(sizeof *session);
-      session->server = server;
-      reactor_http_server_hold(server);
-      reactor_http_open(&session->http, reactor_http_server_event_http, session, s, REACTOR_HTTP_FLAG_SERVER);
+      reactor_http_server_session_create(server, *(int *) data);
       break;
   }
 }
@@ -187,12 +209,17 @@ void reactor_http_server_route(reactor_http_server *server, reactor_user_callbac
 
 void reactor_http_server_respond_mime(reactor_http_server_session *session, char *type, char *data, size_t size)
 {
-  reactor_http_write_response(&session->http, (reactor_http_response[]){{1, 200, "OK",
-          3, (reactor_http_header[]){
-            {"Server", session->server->name},
-            {"Date", session->server->date},
-            {"Content-Type", type}
-          }, data, size}});
+  if (session->state & REACTOR_HTTP_SERVER_SESSION_STATE_OPEN)
+    {
+      reactor_http_write_response(&session->http, (reactor_http_response[]){{1, 200, "OK",
+              3, (reactor_http_header[]){
+              {"Server", session->server->name},
+                {"Date", session->server->date},
+                  {"Content-Type", type}
+            }, data, size}});
+      reactor_http_flush(&session->http);
+    }
+  reactor_http_server_session_release(session);
 }
 
 void reactor_http_server_respond_text(reactor_http_server_session *session, char *text)

@@ -75,6 +75,7 @@ static void reactor_http_server_event(void *state, int type, void *data)
   switch (type)
     {
     case REACTOR_STREAM_EVENT_READ:
+      http->flags |= REACTOR_HTTP_FLAG_WILL_FLUSH;
       while (reactor_stream_data_size(data))
         {
           request.header_count = REACTOR_HTTP_HEADERS_MAX;
@@ -91,6 +92,7 @@ static void reactor_http_server_event(void *state, int type, void *data)
 
           reactor_user_dispatch(&http->user, REACTOR_HTTP_EVENT_REQUEST, &request);
         }
+      http->flags &= ~REACTOR_HTTP_FLAG_WILL_FLUSH;
       reactor_http_flush(http);
       break;
     case REACTOR_STREAM_EVENT_ERROR:
@@ -211,5 +213,6 @@ void reactor_http_write_body(reactor_http *http, void *base, size_t size)
 
 void reactor_http_flush(reactor_http *http)
 {
-  reactor_stream_flush(&http->stream);
+  if ((http->flags & REACTOR_HTTP_FLAG_WILL_FLUSH) == 0)
+    reactor_stream_flush(&http->stream);
 }

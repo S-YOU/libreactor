@@ -23,7 +23,8 @@ enum reactor_http_event
 
 enum reactor_http_flag
 {
-  REACTOR_HTTP_FLAG_SERVER = 0x01
+  REACTOR_HTTP_FLAG_SERVER     = 0x01,
+  REACTOR_HTTP_FLAG_WILL_FLUSH = 0x02
 };
 
 typedef struct reactor_http_header reactor_http_header;

@@ -41,9 +41,17 @@ struct reactor_http_server
   char                  date[32];
 };
 
+enum reactor_http_server_session_state
+{
+  REACTOR_HTTP_SERVER_SESSION_STATE_CLOSED = 0x01,
+  REACTOR_HTTP_SERVER_SESSION_STATE_OPEN   = 0x02
+};
+
 typedef struct reactor_http_server_session reactor_http_server_session;
 struct reactor_http_server_session
 {
+  short                 ref;
+  short                 state;
   reactor_http_server  *server;
   reactor_http          http;
 };
