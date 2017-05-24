@@ -18,12 +18,14 @@ enum reactor_timer_state
 typedef struct reactor_timer reactor_timer;
 struct reactor_timer
 {
-  int           ref;
-  int           state;
+  short         ref;
+  short         state;
   reactor_user  user;
   int           fd;
 };
 
+void reactor_timer_hold(reactor_timer *);
+void reactor_timer_release(reactor_timer *);
 void reactor_timer_open(reactor_timer *, reactor_user_callback *, void *, uint64_t, uint64_t);
 void reactor_timer_set(reactor_timer *, uint64_t, uint64_t);
 void reactor_timer_close(reactor_timer *);

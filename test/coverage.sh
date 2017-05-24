@@ -1,9 +1,7 @@
 #!/bin/bash
 
-for file in src/reactor/*.c
+for file in reactor_core reactor_user reactor_memory reactor_timer
 do
-    file=${file##*/}
-    file=${file%.c}
     test=`gcov -b src/reactor/libreactor_test_a-$file | grep -A4 File.*$file`
     echo "$test"
     echo "$test" | grep '% of' | grep '100.00%' >/dev/null || exit 1

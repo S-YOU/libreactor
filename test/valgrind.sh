@@ -4,12 +4,10 @@ if ! command -v valgrind; then
     exit 0;
 fi
 
-for file in src/reactor/*.c
+for file in reactor_core reactor_user reactor_memory reactor_timer
 do
-    file=${file##*/}
-    file=${file%.c}
     echo [$file]
-    if ! valgrind  --error-exitcode=1 --read-var-info=yes --leak-check=full --show-leak-kinds=all test/$file; then
+    if ! valgrind --error-exitcode=1 --read-var-info=yes --leak-check=full --show-leak-kinds=all test/$file; then
         exit 1
     fi
 done

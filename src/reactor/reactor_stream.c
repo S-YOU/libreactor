@@ -25,7 +25,7 @@ static void reactor_stream_close_fd(reactor_stream *stream)
 
 static void reactor_stream_error(reactor_stream *stream)
 {
-  ((struct pollfd *) reactor_core_fd_poll(stream->fd))->events = 0;
+  reactor_core_fd_clear(stream->fd, REACTOR_CORE_FD_MASK_READ | REACTOR_CORE_FD_MASK_WRITE);
   stream->state = REACTOR_STREAM_STATE_ERROR;
   reactor_user_dispatch(&stream->user, REACTOR_STREAM_EVENT_ERROR, NULL);
 }
@@ -199,7 +199,14 @@ void reactor_stream_flush(reactor_stream *stream)
   base = buffer_data(&stream->output);
   size = buffer_size(&stream->output);
   if (!size)
-    return;
+    {
+      if (stream->state == REACTOR_STREAM_STATE_OPEN)
+        {
+          reactor_core_fd_clear(stream->fd, REACTOR_CORE_FD_MASK_WRITE);
+          reactor_user_dispatch(&stream->user, REACTOR_STREAM_EVENT_WRITE, NULL);
+        }
+      return;
+    }
 
   do
     {
@@ -216,7 +223,7 @@ void reactor_stream_flush(reactor_stream *stream)
     {
       if (stream->state == REACTOR_STREAM_STATE_OPEN)
         {
-          ((struct pollfd *) reactor_core_fd_poll(stream->fd))->events &= ~POLLOUT;
+          reactor_core_fd_clear(stream->fd, REACTOR_CORE_FD_MASK_WRITE);
           reactor_user_dispatch(&stream->user, REACTOR_STREAM_EVENT_WRITE, NULL);
         }
       else
@@ -226,7 +233,7 @@ void reactor_stream_flush(reactor_stream *stream)
 
   if (reactor_unlikely(errno == EAGAIN))
     {
-      ((struct pollfd *) reactor_core_fd_poll(stream->fd))->events |= POLLOUT;
+      reactor_core_fd_set(stream->fd, REACTOR_CORE_FD_MASK_WRITE);
       reactor_user_dispatch(&stream->user, REACTOR_STREAM_EVENT_BLOCKED, NULL);
       return;
     }
@@ -241,7 +248,7 @@ void reactor_stream_flush(reactor_stream *stream)
 
 void reactor_stream_write_notify(reactor_stream *stream)
 {
-  ((struct pollfd *) reactor_core_fd_poll(stream->fd))->events |= POLLOUT;
+  reactor_core_fd_set(stream->fd, REACTOR_CORE_FD_MASK_WRITE);
 }
 
 void *reactor_stream_data_base(reactor_stream_data *data)

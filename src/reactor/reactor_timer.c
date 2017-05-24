@@ -28,22 +28,6 @@ static void reactor_timer_close_fd(reactor_timer *timer)
   timer->fd = -1;
 }
 
-static void reactor_timer_hold(reactor_timer *timer)
-{
-  timer->ref ++;
-}
-
-static void reactor_timer_release(reactor_timer *timer)
-{
-  timer->ref --;
-  if (!timer->ref)
-    {
-      reactor_timer_close_fd(timer);
-      timer->state = REACTOR_TIMER_STATE_CLOSED;
-      reactor_user_dispatch(&timer->user, REACTOR_TIMER_EVENT_CLOSE, timer);
-    }
-}
-
 static void reactor_timer_error(reactor_timer *timer)
 {
   reactor_timer_close_fd(timer);
@@ -54,20 +38,38 @@ static void reactor_timer_error(reactor_timer *timer)
 static void reactor_timer_event(void *state, int type, void *data)
 {
   reactor_timer *timer = state;
-  short revents = ((struct pollfd *) data)->revents;
   uint64_t expirations;
   ssize_t n;
 
-  (void) type;
-  if (revents & (POLLERR | POLLNVAL))
-    reactor_timer_error(timer);
-  else if (revents & POLLIN)
+  (void) data;
+  switch (type)
     {
+    case REACTOR_CORE_FD_EVENT_READ:
       n = read(timer->fd, &expirations, sizeof expirations);
       if (n == sizeof expirations)
         reactor_user_dispatch(&timer->user, REACTOR_TIMER_EVENT_CALL, &expirations);
       else
         reactor_timer_error(timer);
+      break;
+    default:
+      reactor_timer_error(timer);
+      break;
+    }
+}
+
+void reactor_timer_hold(reactor_timer *timer)
+{
+  timer->ref ++;
+}
+
+void reactor_timer_release(reactor_timer *timer)
+{
+  timer->ref --;
+  if (!timer->ref)
+    {
+      reactor_timer_close_fd(timer);
+      timer->state = REACTOR_TIMER_STATE_CLOSED;
+      reactor_user_dispatch(&timer->user, REACTOR_TIMER_EVENT_CLOSE, timer);
     }
 }
 
@@ -84,7 +86,7 @@ void reactor_timer_open(reactor_timer *timer, reactor_user_callback *callback, v
       reactor_timer_error(timer);
       return;
     }
-  reactor_core_fd_register(timer->fd, reactor_timer_event, timer, POLLIN);
+  reactor_core_fd_register(timer->fd, reactor_timer_event, timer, REACTOR_CORE_FD_MASK_READ);
   reactor_timer_set(timer, initial, interval);
 }
 

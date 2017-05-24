@@ -18,7 +18,7 @@ void event(void *state, int type, void *data)
   switch (type)
     {
     case REACTOR_POOL_EVENT_CALL:
-      sleep(1);
+      usleep(100000);
       break;
     case REACTOR_POOL_EVENT_RETURN:
       break;
@@ -32,6 +32,7 @@ int main()
 
   for (i = 0; i < 60; i ++)
     {
+      printf("round %d\n", i);
       reactor_core_construct();
       reactor_pool_construct(&pool);
       for (j = 0; j < 1000; j ++)
