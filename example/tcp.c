@@ -15,26 +15,33 @@
 #include <dynamic.h>
 #include <reactor.h>
 
+typedef struct connection connection;
+struct connection
+{
+  reactor_stream  stream;
+  reactor_tcp    *tcp;
+};
+
 void stream_event(void *state, int type, void *data)
 {
-  reactor_stream *stream = state;
-  reactor_stream_data *read = data;
+  connection *c = state;
+  reactor_memory *read = data;
 
   switch (type)
     {
     case REACTOR_STREAM_EVENT_READ:
-      (void) printf("[read] %.*s\n", (int) read->size, (char *) read->base);
+      (void) printf("[read] %.*s\n", (int) reactor_memory_size(*read), reactor_memory_base(*read));
       if (memmem(read->base, read->size, "quit", 4))
-        reactor_stream_close(stream);
-      reactor_stream_data_consume(read, read->size);
+        reactor_tcp_close(c->tcp);
+      reactor_stream_consume(&c->stream, reactor_memory_size(*read));
       break;
     case REACTOR_STREAM_EVENT_ERROR:
     case REACTOR_STREAM_EVENT_HANGUP:
-      reactor_stream_close(stream);
+      reactor_stream_close(&c->stream);
       break;
     case REACTOR_STREAM_EVENT_CLOSE:
       (void) printf("[close]\n");
-      free(stream);
+      free(c);
       break;
     }
 }
@@ -42,10 +49,9 @@ void stream_event(void *state, int type, void *data)
 void tcp_event(void *state, int type, void *data)
 {
   reactor_tcp *tcp = state;
-  reactor_stream *stream;
+  connection *c;
   int s;
 
-  (void) tcp;
   switch (type)
     {
     case REACTOR_TCP_EVENT_ERROR:
@@ -53,16 +59,12 @@ void tcp_event(void *state, int type, void *data)
       reactor_tcp_close(tcp);
       break;
     case REACTOR_TCP_EVENT_ACCEPT:
-      s = *(int *) data;
-      (void) printf("[accept %d]\n", s);
-      stream = malloc(sizeof *stream);
-      reactor_stream_open(stream, stream_event, stream, s);
-      break;
     case REACTOR_TCP_EVENT_CONNECT:
       s = *(int *) data;
-      (void) printf("[connect %d]\n", s);
-      stream = malloc(sizeof *stream);
-      reactor_stream_open(stream, stream_event, stream, s);
+      (void) printf("[%d]\n", s);
+      c = malloc(sizeof *c);
+      c->tcp = tcp;
+      reactor_stream_open(&c->stream, stream_event, c, s);
       break;
     }
 }
@@ -70,6 +72,7 @@ void tcp_event(void *state, int type, void *data)
 int main(int argc, char **argv)
 {
   reactor_tcp tcp;
+  int e;
 
   if (argc != 4 ||
       (strcmp(argv[1], "client") == 0 &&
@@ -79,6 +82,8 @@ int main(int argc, char **argv)
   reactor_core_construct();
   reactor_tcp_open(&tcp, tcp_event, &tcp, argv[2], argv[3],
                    strcmp(argv[1], "server") == 0 ? REACTOR_TCP_FLAG_SERVER : 0);
-  reactor_core_run();
+  e = reactor_core_run();
+  if (e == -1)
+    err(1, "reactor_core_run");
   reactor_core_destruct();
 }

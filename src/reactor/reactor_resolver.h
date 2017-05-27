@@ -18,13 +18,13 @@ enum reactor_resolver_event
 typedef struct reactor_resolver reactor_resolver;
 struct reactor_resolver
 {
-  int                  ref;
-  int                  state;
-  reactor_user         user;
-  char                *node;
-  char                *service;
-  struct addrinfo     *addrinfo;
-  struct addrinfo      hints;
+  short            ref;
+  short            state;
+  reactor_user     user;
+  char            *node;
+  char            *service;
+  struct addrinfo *addrinfo;
+  struct addrinfo  hints;
 };
 
 void reactor_resolver_open(reactor_resolver *, reactor_user_callback *, void *, char *, char *, struct addrinfo *);

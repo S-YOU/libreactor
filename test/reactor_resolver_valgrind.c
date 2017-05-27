@@ -60,39 +60,6 @@ void core()
   assert_int_equal(state.error, 0);
   assert_int_equal(state.close, 1);
   reactor_core_destruct();
-
-  state = (struct core_state) {0};
-  reactor_core_construct();
-  reactor_resolver_open(&state.resolver, core_event, &state, "x", "y", NULL);
-  e = reactor_core_run();
-  assert_int_equal(e, 0);
-  assert_int_equal(state.result, 0);
-  assert_int_equal(state.error, 0);
-  assert_int_equal(state.close, 1);
-  reactor_core_destruct();
-
-  state = (struct core_state) {0};
-  reactor_core_construct();
-  reactor_resolver_open(&state.resolver, core_event, &state, "localhost", "http", NULL);
-  e = reactor_core_run();
-  assert_int_equal(e, 0);
-  assert_int_equal(state.result, 1);
-  assert_int_equal(state.error, 0);
-  assert_int_equal(state.close, 1);
-  reactor_core_destruct();
-
-  state = (struct core_state) {0};
-  reactor_core_construct();
-  reactor_resolver_open(&state.resolver, core_event, &state, "127.0.0.1", "80",
-                        (struct addrinfo[]){{.ai_flags = 0xffff}});
-  e = reactor_core_run();
-  assert_int_equal(e, 0);
-  assert_int_equal(state.result, 0);
-  assert_int_equal(state.error, 1);
-  assert_int_equal(state.close, 1);
-  reactor_core_destruct();
-
-  reactor_resolver_close(&state.resolver);
 }
 
 void undefined_input()
@@ -107,8 +74,7 @@ int main()
   int e;
 
   const struct CMUnitTest tests[] = {
-    cmocka_unit_test(core),
-    cmocka_unit_test(undefined_input)
+    cmocka_unit_test(core)
   };
 
   e = cmocka_run_group_tests(tests, NULL, NULL);

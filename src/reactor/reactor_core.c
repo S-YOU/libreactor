@@ -35,18 +35,6 @@ struct reactor_core
 
 static __thread struct reactor_core core = {0};
 
-/*
-static void reactor_core_debug(void)
-{
-  int i;
-
-  (void) fprintf(stderr, "[poll] %lu\n", core.polls_current.size);
-  for (i = 0; i < core.polls_current.size; i ++)
-      if (core.polls_current.pollfd[i].fd >= 0)
-        (void) fprintf(stderr, "%d: %02x\n", i, core.polls_current.pollfd[i].events);
-}
-*/
-
 static void reactor_core_resize_polls(size_t size)
 {
   reactor_core_polls polls_new;
@@ -150,9 +138,9 @@ void reactor_core_construct()
 
 void reactor_core_destruct()
 {
+  reactor_pool_destruct(&core.pool);
   free(core.polls_next.pollfd);
   free(core.polls_next.user);
-  reactor_pool_destruct(&core.pool);
 }
 
 int reactor_core_run(void)
@@ -165,9 +153,8 @@ int reactor_core_run(void)
         {
           free(core.polls_current.pollfd);
           free(core.polls_current.user);
-          core.polls_current = core.polls_next;
         }
-
+      core.polls_current = core.polls_next;
       n = poll(core.polls_current.pollfd, core.polls_current.size, -1);
       if (n == -1)
         break;

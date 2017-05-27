@@ -45,7 +45,7 @@ pkgconfig_DATA = libreactor.pc
 
 ### unit tests ###
 
-CHECK_CFLAGS = -std=gnu11 -O0 -g -ftest-coverage -fprofile-arcs -I$(srcdir)/src
+CHECK_CFLAGS = -std=gnu11 -O0 -g -ftest-coverage -fprofile-arcs -I$(srcdir)/src -DGCOV_BUILD
 CHECK_LDADD = -L. -lreactor_test -lcmocka -ldynamic
 CHECK_LDFLAGS_EXTRA = \
 -Wl,--wrap=poll \
@@ -89,6 +89,30 @@ test_reactor_timer_CFLAGS = $(CHECK_CFLAGS)
 test_reactor_timer_LDADD = $(CHECK_LDADD)
 test_reactor_timer_LDFLAGS = $(CHECK_LDFLAGS_EXTRA)
 test_reactor_timer_SOURCES = test/reactor_timer.c test/mock.c
+
+check_PROGRAMS += test/reactor_pool
+test_reactor_pool_CFLAGS = $(CHECK_CFLAGS)
+test_reactor_pool_LDADD = $(CHECK_LDADD)
+test_reactor_pool_LDFLAGS = $(CHECK_LDFLAGS_EXTRA)
+test_reactor_pool_SOURCES = test/reactor_pool.c test/mock.c
+
+check_PROGRAMS += test/reactor_resolver
+test_reactor_resolver_CFLAGS = $(CHECK_CFLAGS)
+test_reactor_resolver_LDADD = $(CHECK_LDADD)
+test_reactor_resolver_LDFLAGS = $(CHECK_LDFLAGS_EXTRA)
+test_reactor_resolver_SOURCES = test/reactor_resolver.c test/mock.c
+
+check_PROGRAMS += test/reactor_resolver_valgrind
+test_reactor_resolver_valgrind_CFLAGS = $(CHECK_CFLAGS)
+test_reactor_resolver_valgrind_LDADD = $(CHECK_LDADD)
+test_reactor_resolver_valgrind_LDFLAGS = $(CHECK_LDFLAGS_EXTRA)
+test_reactor_resolver_valgrind_SOURCES = test/reactor_resolver_valgrind.c test/mock.c
+
+check_PROGRAMS += test/reactor_stream
+test_reactor_stream_CFLAGS = $(CHECK_CFLAGS)
+test_reactor_stream_LDADD = $(CHECK_LDADD)
+test_reactor_stream_LDFLAGS = $(CHECK_LDFLAGS_EXTRA)
+test_reactor_stream_SOURCES = test/reactor_stream.c test/mock.c
 
 TESTS = $(check_PROGRAMS) test/valgrind.sh test/coverage.sh
 

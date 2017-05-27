@@ -16,8 +16,7 @@ enum reactor_tcp_event
   REACTOR_TCP_EVENT_ERROR,
   REACTOR_TCP_EVENT_ACCEPT,
   REACTOR_TCP_EVENT_CONNECT,
-  REACTOR_TCP_EVENT_CLOSE,
-  REACTOR_TCP_EVENT_DESTRUCT
+  REACTOR_TCP_EVENT_CLOSE
 };
 
 enum reactor_tcp_flag
@@ -32,13 +31,13 @@ struct reactor_tcp
   short             state;
   reactor_user      user;
   int               socket;
-  int               flags;
+  short             flags;
   reactor_resolver *resolver;
 };
 
 void reactor_tcp_hold(reactor_tcp *);
 void reactor_tcp_release(reactor_tcp *);
-void reactor_tcp_open(reactor_tcp *, reactor_user_callback *, void *, char *, char *, int);
+void reactor_tcp_open(reactor_tcp *, reactor_user_callback *, void *, char *, char *, short);
 void reactor_tcp_close(reactor_tcp *);
 
 #endif /* REACTOR_TCP_H_INCLUDED */

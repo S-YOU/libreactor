@@ -46,7 +46,7 @@ void core()
   reactor_pool_construct(&pool);
   reactor_pool_enqueue(&pool, event, NULL);
   e = reactor_core_run();
-  sleep(1);
+  usleep(100000);
   reactor_pool_enqueue(&pool, event, NULL);
   e = reactor_core_run();
   assert_int_equal(called, returned);
@@ -90,7 +90,7 @@ void io_error()
   reactor_core_construct();
   reactor_pool_construct(&pool);
   reactor_pool_enqueue(&pool, event, NULL);
-  sleep(1);
+  usleep(100000);
   mock_read_failure = 1;
   reactor_core_run();
   mock_read_failure = 0;
@@ -100,9 +100,19 @@ void io_error()
   reactor_core_construct();
   reactor_pool_construct(&pool);
   reactor_pool_enqueue(&pool, event, NULL);
+  usleep(100000);
+  close(pool.queue[0]);
+  reactor_core_run();
+  reactor_pool_destruct(&pool);
+  reactor_core_destruct();
+
+  reactor_core_construct();
+  reactor_pool_construct(&pool);
+  reactor_pool_enqueue(&pool, event, NULL);
   mock_write_failure = 1;
-  sleep(1);
+  usleep(100000);
   mock_write_failure = 0;
+  reactor_pool_destruct(&pool);
   reactor_pool_destruct(&pool);
   reactor_core_destruct();
 }

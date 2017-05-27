@@ -37,103 +37,84 @@ static void reactor_tcp_error(reactor_tcp *tcp)
 static void reactor_tcp_socket_event(void *state, int type, void *data)
 {
   reactor_tcp *tcp = state;
-  short revents = ((struct pollfd *) data)->revents;
   int s;
 
-  (void) type;
-  if (revents & (POLLERR | POLLNVAL | POLLHUP))
-    reactor_tcp_error(tcp);
-  else if (revents & POLLIN)
+  (void) data;
+  switch (type)
     {
+    case REACTOR_CORE_FD_EVENT_READ:
       s = accept(tcp->socket, NULL, NULL);
       if (s >= 0)
         reactor_user_dispatch(&tcp->user, REACTOR_TCP_EVENT_ACCEPT, &s);
-      else
-        reactor_tcp_error(tcp);
+      break;
+    case REACTOR_CORE_FD_EVENT_WRITE:
+      reactor_user_dispatch(&tcp->user, REACTOR_TCP_EVENT_CONNECT, &tcp->socket);
+      break;
+    default:
+      reactor_tcp_error(tcp);
+      break;
     }
-  else if (revents & POLLOUT)
-    reactor_user_dispatch(&tcp->user, REACTOR_TCP_EVENT_CONNECT, &tcp->socket);
 }
 
-static void reactor_tcp_connect(reactor_tcp *tcp, struct addrinfo *addrinfo)
+static int reactor_tcp_connect(reactor_tcp *tcp, struct addrinfo *addrinfo)
 {
-  int s, e;
+  int e;
 
-  s = socket(addrinfo->ai_family, addrinfo->ai_socktype, addrinfo->ai_protocol);
-  if (s == -1)
-    {
-      reactor_tcp_error(tcp);
-      return;
-    }
+  tcp->socket = socket(addrinfo->ai_family, addrinfo->ai_socktype, addrinfo->ai_protocol);
+  if (tcp->socket == -1)
+    return -1;
 
-  e = fcntl(s, F_SETFL, O_NONBLOCK);
+  e = fcntl(tcp->socket, F_SETFL, O_NONBLOCK);
   if (e == -1)
-    {
-      (void) close(s);
-      reactor_tcp_error(tcp);
-      return;
-    }
+    return -1;
 
-  e = connect(s, addrinfo->ai_addr, addrinfo->ai_addrlen);
+  e = connect(tcp->socket, addrinfo->ai_addr, addrinfo->ai_addrlen);
   if (e == -1 && errno != EINPROGRESS)
-    {
-      (void) close(s);
-      reactor_tcp_error(tcp);
-      return;
-    }
+    return -1;
 
-  tcp->socket = s;
   reactor_core_fd_register(tcp->socket, reactor_tcp_socket_event, tcp, POLLOUT);
+  return 0;
 }
 
-
-static void reactor_tcp_listen(reactor_tcp *tcp, struct addrinfo *addrinfo)
+static int reactor_tcp_listen(reactor_tcp *tcp, struct addrinfo *addrinfo)
 {
-  int s, e;
+  int e;
 
-  s = socket(addrinfo->ai_family, addrinfo->ai_socktype, addrinfo->ai_protocol);
-  if (s == -1)
-    {
-      reactor_tcp_error(tcp);
-      return;
-    }
+  tcp->socket = socket(addrinfo->ai_family, addrinfo->ai_socktype, addrinfo->ai_protocol);
+  if (tcp->socket == -1)
+    return -1;
 
-  (void) setsockopt(s, SOL_SOCKET, SO_REUSEPORT, (int[]){1}, sizeof(int));
-  (void) setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (int[]){1}, sizeof(int));
+  (void) setsockopt(tcp->socket, SOL_SOCKET, SO_REUSEPORT, (int[]){1}, sizeof(int));
+  (void) setsockopt(tcp->socket, SOL_SOCKET, SO_REUSEADDR, (int[]){1}, sizeof(int));
 
-  e = bind(s, addrinfo->ai_addr, addrinfo->ai_addrlen);
+  e = bind(tcp->socket, addrinfo->ai_addr, addrinfo->ai_addrlen);
   if (e == -1)
-    {
-      (void) close(s);
-      reactor_tcp_error(tcp);
-      return;
-    }
+    return -1;
 
-  e = listen(s, -1);
+  e = listen(tcp->socket, -1);
   if (e == -1)
-    {
-      (void) close(s);
-      reactor_tcp_error(tcp);
-      return;
-    }
+    return -1;
 
-  tcp->socket = s;
   reactor_core_fd_register(tcp->socket, reactor_tcp_socket_event, tcp, POLLIN);
+  return 0;
 }
 
 static void reactor_tcp_resolve_event(void *state, int type, void *data)
 {
   reactor_tcp *tcp = state;
+  int e;
 
   switch (type)
     {
     case REACTOR_RESOLVER_EVENT_RESULT:
       if (!data)
+        {
+          reactor_tcp_error(tcp);
+          break;
+        }
+      e = (tcp->flags & REACTOR_TCP_FLAG_SERVER ? reactor_tcp_listen : reactor_tcp_connect)(tcp, data);
+      if (e == -1)
         reactor_tcp_error(tcp);
-      else if (tcp->flags & REACTOR_TCP_FLAG_SERVER)
-        reactor_tcp_listen(tcp, data);
-      else
-        reactor_tcp_connect(tcp, data);
       break;
     case REACTOR_RESOLVER_EVENT_ERROR:
       reactor_tcp_error(tcp);
@@ -148,8 +129,13 @@ static void reactor_tcp_resolve_event(void *state, int type, void *data)
 
 static void reactor_tcp_resolve(reactor_tcp *tcp, char *node, char *service)
 {
-  reactor_tcp_hold(tcp);
   tcp->resolver = malloc(sizeof *tcp->resolver);
+  if (!tcp->resolver)
+    {
+      reactor_tcp_error(tcp);
+      return;
+    }
+  reactor_tcp_hold(tcp);
   reactor_resolver_open(tcp->resolver, reactor_tcp_resolve_event, tcp, node, service, NULL);
 }
 
@@ -169,7 +155,7 @@ void reactor_tcp_release(reactor_tcp *tcp)
 }
 
 void reactor_tcp_open(reactor_tcp *tcp, reactor_user_callback *callback, void *state,
-                      char *node, char *service, int flags)
+                      char *node, char *service, short flags)
 {
   tcp->ref = 0;
   tcp->state = REACTOR_TCP_STATE_RESOLVING;

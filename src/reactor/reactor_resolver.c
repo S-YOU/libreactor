@@ -23,7 +23,10 @@ static void reactor_resolver_error(reactor_resolver *resolver)
   reactor_resolver_release(resolver);
 }
 
-static void reactor_resolver_job(void *state, int type, void *data)
+#ifndef GCOV_BUILD
+static
+#endif
+void reactor_resolver_job(void *state, int type, void *data)
 {
   reactor_resolver *resolver = state;
 

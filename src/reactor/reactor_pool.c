@@ -92,14 +92,19 @@ static void reactor_pool_flush(reactor_pool *pool)
 
 static void reactor_pool_event(void *state, int type, void *data)
 {
+  reactor_pool *pool = state;
+
   (void) data;
   switch (type)
     {
     case REACTOR_CORE_FD_EVENT_READ:
-      reactor_pool_dequeue(state);
+      reactor_pool_dequeue(pool);
       break;
     case REACTOR_CORE_FD_EVENT_WRITE:
-      reactor_pool_flush(state);
+      reactor_pool_flush(pool);
+      break;
+    default:
+      reactor_core_fd_deregister(pool->queue[0]);
       break;
     }
 }
@@ -140,8 +145,16 @@ void reactor_pool_destruct(reactor_pool *pool)
       free(job);
     }
 
-  (void) close(pool->queue[0]);
-  (void) close(pool->queue[1]);
+  if (pool->queue[0] >= 0)
+    {
+      (void) close(pool->queue[0]);
+      pool->queue[0] = -1;
+    }
+  if (pool->queue[1] >= 0)
+    {
+      (void) close(pool->queue[1]);
+      pool->queue[1] = -1;
+    }
 }
 
 void reactor_pool_limits(reactor_pool *pool, size_t min, size_t max)
@@ -163,6 +176,7 @@ void reactor_pool_enqueue(reactor_pool *pool, reactor_user_callback *callback, v
     reactor_pool_grow(pool);
   if (!pool->jobs)
     reactor_core_fd_register(pool->queue[0], reactor_pool_event, pool, REACTOR_CORE_FD_MASK_READ);
+
   pool->jobs ++;
 
   if (TAILQ_EMPTY(&pool->jobs_head))
