@@ -18,6 +18,7 @@ extern "C" {
 #include "reactor/reactor_timer.h"
 #include "reactor/reactor_stream.h"
 #include "reactor/reactor_resolver.h"
+#include "reactor/reactor_udp.h"
 #include "reactor/reactor_tcp.h"
 
 #ifdef __cplusplus
