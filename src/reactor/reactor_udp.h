@@ -16,7 +16,7 @@ enum reactor_udp_state
 enum reactor_udp_event
 {
   REACTOR_UDP_EVENT_ERROR,
-  REACTOR_UDP_EVENT_READ,
+  REACTOR_UDP_EVENT_SOCKET,
   REACTOR_UDP_EVENT_CLOSE
 };
 
@@ -31,7 +31,6 @@ struct reactor_udp
   short             ref;
   short             state;
   reactor_user      user;
-  int               socket;
   short             flags;
   reactor_resolver *resolver;
 };
