@@ -53,6 +53,8 @@ static void reactor_udp_listen(reactor_udp *udp, struct addrinfo *addrinfo)
       sin = *(struct sockaddr_in *) addrinfo->ai_addr;
       if (IN_MULTICAST(ntohl(sin.sin_addr.s_addr)))
 	{
+
+	  (void) setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (int[]){1}, sizeof(int));
 	  e = setsockopt(s, IPPROTO_IP, IP_ADD_MEMBERSHIP,
 			 (struct ip_mreq[]){{.imr_multiaddr = sin.sin_addr, .imr_interface.s_addr = htonl(INADDR_ANY)}},
 			 sizeof(struct ip_mreq));
