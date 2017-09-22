@@ -159,7 +159,7 @@ int reactor_core_run(void)
       if (n == -1)
         break;
 
-      for (i = 0; i < n; i ++)
+      for (i = 0; i < n && i < (int) core.polls_current.size; i ++)
         reactor_core_fd_event(&core.polls_current.user[i], &core.polls_current.pollfd[i].revents, &n);
     }
 
